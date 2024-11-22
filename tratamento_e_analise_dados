@@ -1,0 +1,105 @@
+--------------------------------------------------------------------------------------------------------------------------------------------------
+# Tratamento dos dados
+--------------------------------------------------------------------------------------------------------------------------------------------------
+from scipy.stats import zscore
+
+# Garantir que a coluna 'Date' está presente e converter para datetime
+if 'Date' in data.columns:
+    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Força conversão para datetime
+else:
+    raise KeyError("A coluna 'Date' não está presente nos dados.")
+
+# Ajustar formato de exibição
+data['Date'] = data['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Reconverte para datetime
+
+# Converter colunas categóricas
+data['Location'] = data['Location'].astype(str)
+data['Country'] = data['Country'].astype(str)
+
+# Ordenar os dados por data e redefinir o índice
+data = data.sort_values(by='Date').reset_index(drop=True)
+
+# Tratar dados faltantes
+num_cols = ['Temperature', 'CO2 Emissions', 'Sea Level Rise', 'Precipitation', 'Humidity', 'Wind Speed']
+data[num_cols] = data[num_cols].fillna(data[num_cols].mean())
+
+cat_cols = ['Location', 'Country']
+data[cat_cols] = data[cat_cols].fillna('Desconhecido')
+
+# Remover duplicatas
+data = data.drop_duplicates()
+
+# Identificar e tratar valores anômalos
+for col in num_cols:
+    data = data[(zscore(data[col]) < 3)]  # Remove registros com Z-Score > 3
+
+# Normalizar nomes
+data['Location'] = data['Location'].str.title()
+data['Country'] = data['Country'].str.title()
+
+# Criar colunas derivadas de data
+data['Year'] = data['Date'].dt.year
+data['Month'] = data['Date'].dt.month
+data['Day'] = data['Date'].dt.day
+
+# Renomear colunas
+data.columns = data.columns.str.replace(' ', '_').str.lower()
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Analise Explorátoria
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Calcular a correlação entre as variáveis numéricas
+num_cols = ['temperature', 'co2_emissions', 'sea_level_rise', 'precipitation', 'humidity', 'wind_speed']
+correlation_matrix = data[num_cols].corr()
+
+# Visualizar a matriz de correlação
+plt.figure(figsize=(8, 6))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
+plt.title("Matriz de Correlação")
+plt.show()
+
+# Relação entre temperatura e emissões de CO2
+plt.figure(figsize=(8, 6))
+sns.scatterplot(data=data, x='co2_emissions', y='temperature', hue='year', palette='viridis')
+plt.title('Relação entre Temperatura e Emissões de CO₂')
+plt.xlabel('CO₂ Emissões (ppm)')
+plt.ylabel('Temperatura (°C)')
+plt.show()
+
+
+# Tendência de temperatura ao longo dos anos
+plt.figure(figsize=(10, 6))
+data.groupby('year')['temperature'].mean().plot()
+plt.title('Média Anual de Temperatura')
+plt.xlabel('Ano')
+plt.ylabel('Temperatura (°C)')
+plt.grid()
+plt.show()
+
+# Tendência de emissões de CO2
+plt.figure(figsize=(10, 6))
+data.groupby('year')['co2_emissions'].mean().plot(color='red')
+plt.title('Média Anual de Emissões de CO₂')
+plt.xlabel('Ano')
+plt.ylabel('CO₂ Emissões (ppm)')
+plt.grid()
+plt.show()
+
+import seaborn as sns
+
+# Distribuição de precipitação
+plt.figure(figsize=(8, 5))
+sns.histplot(data['precipitation'], kde=True, bins=30, color='blue')
+plt.title('Distribuição de Precipitação')
+plt.xlabel('Precipitação (mm)')
+plt.ylabel('Frequência')
+plt.show()
+
+# Distribuição de temperatura
+plt.figure(figsize=(8, 5))
+sns.histplot(data['temperature'], kde=True, bins=30, color='orange')
+plt.title('Distribuição de Temperatura')
+plt.xlabel('Temperatura (°C)')
+plt.ylabel('Frequência')
+plt.show()
